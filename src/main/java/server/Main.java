@@ -12,11 +12,11 @@ import static spark.Spark.*;
 
 public class Main {
     private static Logger logger = LoggerFactory.getLogger(Main.class);
-    private static int port = 4567;
     private static Generator modelGenerator = Generator.getInstace();
     // private static int maxThreads = 8;
 
     public static void main(String[] args) {
+        int port = getHerokuAssignedPort();
         port(port);
         // threadPool(maxThreads);
         logger.info("Kairos Server Server starting at port: "+ port);
@@ -63,5 +63,13 @@ public class Main {
         });
 
         get("/hello", (request, response) -> "hello dear");
+    }
+
+    private static int getHerokuAssignedPort() {
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        if (processBuilder.environment().get("PORT") != null) {
+            return Integer.parseInt(processBuilder.environment().get("PORT"));
+        }
+        return 4567; //return default port if heroku-port isn't set (i.e. on localhost)
     }
 }
