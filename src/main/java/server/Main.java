@@ -2,9 +2,10 @@ package server;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import model.GeneratorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import weka.Weka;
+import model.Generator;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static spark.Spark.*;
@@ -12,7 +13,7 @@ import static spark.Spark.*;
 public class Main {
     private static Logger logger = LoggerFactory.getLogger(Main.class);
     private static int port = 4567;
-    private static Weka modelGenerator = Weka.getInstace();
+    private static Generator modelGenerator = Generator.getInstace();
     // private static int maxThreads = 8;
 
     public static void main(String[] args) {
@@ -36,7 +37,7 @@ public class Main {
             JsonObject result = new JsonObject();
             try {
                 result = modelGenerator.registerSettings(request.body());
-            } catch (JsonParseException je) {
+            } catch (JsonParseException | GeneratorException je) {
                 // Invalid json request
                 logger.debug("Malformed Json Request.");
                 response.status(HTTP_BAD_REQUEST);
@@ -52,7 +53,7 @@ public class Main {
             JsonObject result = new JsonObject();
             try {
                 result = modelGenerator.registerData(request.body());
-            } catch (JsonParseException je) {
+            } catch (JsonParseException | GeneratorException je) {
                 // Invalid json request
                 logger.debug("Malformed Json Request.");
                 response.status(HTTP_BAD_REQUEST);
