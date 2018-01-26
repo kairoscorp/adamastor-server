@@ -61,5 +61,7 @@ public class Main {
             }
             return result;
         });
+
+        get("/hello", (request, response) -> "hello dear");
     }
 }

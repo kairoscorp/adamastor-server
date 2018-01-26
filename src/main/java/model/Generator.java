@@ -108,6 +108,7 @@ public class Generator {
         return response;
     }
 
+    /*
     public static void main(String[] args) {
         Generator weka = Generator.getInstace();
         JsonObject request = new JsonObject();
@@ -124,6 +125,7 @@ public class Generator {
             e.printStackTrace();
         }
     }
+    */
 
     private void generateDataSet(File scriptFile, File outputFile, File modelFile ) throws GeneratorException {
         // Generate dataset
