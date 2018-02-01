@@ -34,14 +34,13 @@ public class Main {
         // When on boarding is done the settings should be registered in the browser
         post("/settings", (request, response) -> {
             logger.debug("Received a request to set user settings. Request: "+request.body());
-            JsonObject result = new JsonObject();
+            byte[] result = null;
             try {
                 result = modelGenerator.registerSettings(request.body());
             } catch (JsonParseException | GeneratorException je) {
                 // Invalid json request
                 logger.debug("Malformed Json Request.");
                 response.status(HTTP_BAD_REQUEST);
-                result.addProperty("error", je.getMessage());
             }
             return result;
 
@@ -50,14 +49,13 @@ public class Main {
         // Data should be sent to the data in a window of opportunity
         post("/data", (request, response) -> {
             logger.debug("Received a request with new data from the collector. Request: "+request.body());
-            JsonObject result = new JsonObject();
+            byte[] result = null;
             try {
-                result = modelGenerator.registerData(request.body());
+                result = modelGenerator.registerData(request);
             } catch (JsonParseException | GeneratorException je) {
                 // Invalid json request
                 logger.debug("Malformed Json Request.");
                 response.status(HTTP_BAD_REQUEST);
-                result.addProperty("error", je.getMessage());
             }
             return result;
         });

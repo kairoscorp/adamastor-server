@@ -8,10 +8,16 @@ import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
+import serializer.Serializer;
+import spark.Request;
+import spark.utils.IOUtils;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import javax.servlet.MultipartConfigElement;
+import javax.servlet.ServletException;
+import javax.servlet.http.Part;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class Generator {
     private static final JsonParser parser = new JsonParser();
@@ -29,7 +35,7 @@ public class Generator {
         return instance;
     }
 
-    public JsonObject registerSettings(String requestBody) throws GeneratorException {
+    public byte[] registerSettings(String requestBody) throws GeneratorException {
         // Parse request
         JsonObject requestJson = parser.parse(requestBody).getAsJsonObject();
 
@@ -37,118 +43,97 @@ public class Generator {
         String [] fields = {
                 "working_hours_start",
                 "working_hours_end",
-                "working_location_longitude",
-                "working_location_latitude",
-                "leisure_location_longitude",
-                "leisure_location_latitude",
         };
 
         validateRequest(requestJson, fields);
 
         // Get config file from resources folder
         String folderPath = "src/main/resources/";
-        File inputFile = new File(folderPath + "config.xml");
-        File outputFile = new File(folderPath + "custom_config.xml");
-        File scriptFile = new File(folderPath + "generator.py");
-        File modelFile = new File(folderPath + "data_set.csv");
-
-
-        // Create config file
-        createConfigFile(requestJson, inputFile, outputFile);
-
-        // Generate dataset
-        generateDataSet(scriptFile, outputFile, modelFile);
-
-        // Generate model
-
-        // Create a response
-        JsonObject response = new JsonObject();
-        response.add("generate_model", null);
-        return response;
-    }
-
-    public JsonObject registerData(String requestBody) throws GeneratorException {
-        // Parse request
-        JsonObject requestJson = parser.parse(requestBody).getAsJsonObject();
-
-        // Validate request
-        String [] fields = {
-                "working_hours_start",
-                "working_hours_end",
-                "working_location_longitude",
-                "working_location_latitude",
-                "leisure_location_longitude",
-                "leisure_location_latitude",
-                "data"
-        };
-
-        validateRequest(requestJson, fields);
-
-        // Get data
-        String dataset = null;
-
-        // Get config file from resources folder
-        String folderPath = "src/main/resources/";
-        File inputFile = new File(folderPath + "config.xml");
-        File outputFile = new File(folderPath + "custom_config.xml");
-        File modelFile = new File(folderPath + "data_set.csv");
+        File configFile = new File(folderPath + "config.xml");
+        File customConfigFile = new File(folderPath + "custom_config.xml");
+        File datasetGeneratorScript = new File(folderPath + "dataset_generator.py");
+        File datasetFile = new File(folderPath + "data_set.csv");
+        File modelGeneratorScript = new File(folderPath + "model_generator.R");
+        File modelFile = new File(folderPath + "model.pmml");
+        File serializedModelFile = new File(folderPath + "serialized_model.txt");
 
         // Create config file
-        createConfigFile(requestJson, inputFile, outputFile);
+        createConfigFile(requestJson, configFile, customConfigFile);
 
         // Generate dataset
-        saveDataSet(dataset, modelFile);
+        generateDataSet(datasetGeneratorScript, customConfigFile, datasetFile);
 
         // Generate model
+        generateModel(modelGeneratorScript, datasetFile, modelFile);
 
+        // Serialize data from model file
+        Serializer.serialize(modelFile, serializedModelFile);
 
-        // Create a response
-        JsonObject response = new JsonObject();
-        response.add("generate_model", null);
-        return response;
-    }
-
-    /*
-    public static void main(String[] args) {
-        Generator weka = Generator.getInstace();
-        JsonObject request = new JsonObject();
-        request.addProperty("working_hours_start", 8);
-        request.addProperty("working_hours_end", 18);
-        request.addProperty("working_location_longitude", 41.56131);
-        request.addProperty("working_location_latitude", -8.393804);
-        request.addProperty("leisure_location_longitude", 32.56131);
-        request.addProperty("leisure_location_latitude", -12.323804);
-
+        byte[] data;
         try {
-            weka.registerSettings(request.toString());
-        } catch (GeneratorException e) {
-            e.printStackTrace();
-        }
-    }
-    */
-
-    private void generateDataSet(File scriptFile, File outputFile, File modelFile ) throws GeneratorException {
-        // Generate dataset
-        Runtime rt = Runtime.getRuntime();
-        String[] commands = {"python",scriptFile.getAbsolutePath(), outputFile.getAbsolutePath(), modelFile.getAbsolutePath()};
-        try {
-            Process proc = rt.exec(commands);
-            int returnValue = proc.waitFor();
-            if(returnValue != 0) {
-                throw new InterruptedException();
-            }
-        } catch (IOException | InterruptedException e) {
+            data = Files.readAllBytes(Paths.get(serializedModelFile.getAbsolutePath()));
+        } catch (IOException e) {
             throw new GeneratorException("An unexpected error has occurred");
         }
+
+        return data;
     }
 
-    private void createConfigFile(JsonObject requestJson, File inputFile, File outputFile) throws GeneratorException {
+    public byte[] registerData(Request request) throws GeneratorException {
+        request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
+        byte[] data;
+
+        try {
+            Part csv = request.raw().getPart("csv_file");
+            try (InputStream inputStream = csv.getInputStream()) {
+                OutputStream outputStream = new FileOutputStream("/tmp/" + csv.getSubmittedFileName());
+                IOUtils.copy(inputStream, outputStream);
+                outputStream.close();
+            }
+            Part locations = request.raw().getPart("locations");
+            try (InputStream inputStream = locations.getInputStream()) {
+                OutputStream outputStream = new FileOutputStream("/tmp/" + locations.getSubmittedFileName());
+                IOUtils.copy(inputStream, outputStream);
+                outputStream.close();
+            }
+
+            // Get config file from resources folder
+            String folderPath = "src/main/resources/";
+            File csvFile = new File("/tmp/logdump.csv");
+            File locationsFile = new File("/tmp/locations.JSON");
+            File modelFile = new File(folderPath + "model.pmml");
+            File generateModelFile = new File(folderPath + "clean_generate_model.R");
+            File serializedModelFile = new File(folderPath + "serialized_model.txt");
+
+            String [] command = {"Rscript", generateModelFile.getAbsolutePath(), csvFile.getAbsolutePath(), locationsFile.getAbsolutePath(), modelFile.getAbsolutePath()};
+            executeCommand(command);
+
+            // Serialize data from model file
+            Serializer.serialize(modelFile, serializedModelFile);
+
+            try {
+                data = Files.readAllBytes(Paths.get(serializedModelFile.getAbsolutePath()));
+            } catch (IOException e) {
+                throw new GeneratorException("An unexpected error has occurred");
+            }
+
+        } catch (IOException | ServletException e) {
+            throw new GeneratorException("An unexpected error has occurred");
+        }
+
+        return data;
+
+    }
+
+    private void generateDataSet(File datasetGeneratorScript, File customConfig, File datasetFile ) throws GeneratorException {
+        // Generate dataset
+        String[] commands = {"python", datasetGeneratorScript.getAbsolutePath(), customConfig.getAbsolutePath(), datasetFile.getAbsolutePath()};
+        executeCommand(commands);
+    }
+
+    private void createConfigFile(JsonObject requestJson, File config, File customConfig) throws GeneratorException {
         Integer workingHoursStart = Math.round(requestJson.get("working_hours_start").getAsFloat());
         Integer workingHoursEnd = Math.round(requestJson.get("working_hours_end").getAsFloat());
-        Double workingLocationLongitude = requestJson.get("working_location_longitude").getAsDouble();
-        Double workingLocationLatitude = requestJson.get("working_location_latitude").getAsDouble();
-        Double leisureLocationLongitude = requestJson.get("leisure_location_longitude").getAsDouble();
-        Double leisureLocationLatitude = requestJson.get("leisure_location_latitude").getAsDouble();
 
 
         Integer workingHoursStartMorning = workingHoursStart;
@@ -167,7 +152,7 @@ public class Generator {
 
         // Change config file
         try {
-            Document document = builder.build(inputFile);
+            Document document = builder.build(config);
             Element rootNode = document.getRootElement();
 
             // Change work settings
@@ -192,7 +177,7 @@ public class Generator {
             XMLOutputter xmlOutput = new XMLOutputter();
 
             xmlOutput.setFormat(Format.getPrettyFormat());
-            xmlOutput.output(document, new FileWriter(outputFile));
+            xmlOutput.output(document, new FileWriter(customConfig));
         } catch (IOException | JDOMException e) {
             throw new GeneratorException("An unexpected error has occurred");
         }
@@ -206,8 +191,53 @@ public class Generator {
         }
     }
 
+    private void generateModel(File modelGeneratorScript, File datasetFile, File modelFile) throws GeneratorException {
+        // Generate model
+        String[] commands = {"Rscript", modelGeneratorScript.getAbsolutePath(), datasetFile.getAbsolutePath(), modelFile.getAbsolutePath()};
+        executeCommand(commands);
+    }
 
     private void saveDataSet(String dataset, File modelFile) {
         //
     }
+
+    private void executeCommand(String [] commands) throws GeneratorException {
+        try {
+            Runtime rt = Runtime.getRuntime();
+            Process proc = rt.exec(commands);
+            int returnValue = proc.waitFor();
+            if(returnValue != 0) {
+                printErrors(proc);
+                throw new InterruptedException();
+            }
+        } catch (IOException | InterruptedException e) {
+            throw new GeneratorException("An unexpected error has occurred");
+        }
+    }
+
+    private void printErrors(Process proc) {
+        BufferedReader stdInput = new BufferedReader(new
+                InputStreamReader(proc.getInputStream()));
+
+        BufferedReader stdError = new BufferedReader(new
+                InputStreamReader(proc.getErrorStream()));
+
+        // read the output from the command
+        System.out.println("Here is the standard output of the command:\n");
+        String s = null;
+        try {
+            while ((s = stdInput.readLine()) != null) {
+                System.out.println(s);
+            }
+
+            // read any errors from the attempted command
+            System.out.println("Here is the standard error of the command (if any):\n");
+            while ((s = stdError.readLine()) != null) {
+                System.out.println(s);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }

@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<PMML version="4.3" xmlns="http://www.dmg.org/PMML-4_3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.dmg.org/PMML-4_3 http://www.dmg.org/pmml/v4-3/pmml-4-3.xsd">
+ <Header copyright="Copyright (c) 2018 dcouto" description="RPart Decision Tree Model">
+  <Extension name="user" value="dcouto" extender="Rattle/PMML"/>
+  <Application name="Rattle/PMML" version="1.4"/>
+  <Timestamp>2018-01-31 19:04:55</Timestamp>
+ </Header>
+ <DataDictionary numberOfFields="11">
+  <DataField name="class" optype="continuous" dataType="double"/>
+  <DataField name="hour" optype="continuous" dataType="double"/>
+  <DataField name="minute" optype="continuous" dataType="double"/>
+  <DataField name="weekday" optype="continuous" dataType="double"/>
+  <DataField name="foreground" optype="continuous" dataType="double"/>
+  <DataField name="activity" optype="continuous" dataType="double"/>
+  <DataField name="screen_active" optype="continuous" dataType="double"/>
+  <DataField name="call_active" optype="continuous" dataType="double"/>
+  <DataField name="music_active" optype="continuous" dataType="double"/>
+  <DataField name="ring_mode" optype="continuous" dataType="double"/>
+  <DataField name="location" optype="continuous" dataType="double"/>
+ </DataDictionary>
+ <TreeModel modelName="RPart_Model" functionName="regression" algorithmName="rpart" splitCharacteristic="binarySplit" missingValueStrategy="defaultChild" noTrueChildStrategy="returnLastPrediction">
+  <MiningSchema>
+   <MiningField name="class" usageType="predicted" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="hour" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="minute" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="weekday" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="foreground" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="activity" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="screen_active" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="call_active" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="music_active" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="ring_mode" usageType="active" invalidValueTreatment="returnInvalid"/>
+   <MiningField name="location" usageType="active" invalidValueTreatment="returnInvalid"/>
+  </MiningSchema>
+  <Output>
+   <OutputField name="Predicted_class" optype="continuous" dataType="double" feature="predictedValue"/>
+  </Output>
+  <Node id="1" score="1.375" recordCount="86400" defaultChild="2">
+   <True/>
+   <Node id="2" score="0.466666666666667" recordCount="54000" defaultChild="4">
+    <CompoundPredicate booleanOperator="surrogate">
+     <SimplePredicate field="location" operator="lessThan" value="1.5"/>
+     <SimplePredicate field="hour" operator="lessThan" value="6.5"/>
+     <SimplePredicate field="music_active" operator="lessThan" value="0.5"/>
+     <SimplePredicate field="activity" operator="lessThan" value="2.5"/>
+     <SimplePredicate field="foreground" operator="lessThan" value="0.5"/>
+     <SimplePredicate field="screen_active" operator="lessThan" value="0.5"/>
+    </CompoundPredicate>
+    <Node id="4" score="0" recordCount="25200">
+     <CompoundPredicate booleanOperator="surrogate">
+      <SimplePredicate field="hour" operator="lessThan" value="9"/>
+      <SimplePredicate field="activity" operator="lessThan" value="1.5"/>
+     </CompoundPredicate>
+    </Node>
+    <Node id="5" score="0.875" recordCount="28800" defaultChild="10">
+     <CompoundPredicate booleanOperator="surrogate">
+      <SimplePredicate field="hour" operator="greaterOrEqual" value="9"/>
+      <SimplePredicate field="activity" operator="greaterOrEqual" value="1.5"/>
+     </CompoundPredicate>
+     <Node id="10" score="0" recordCount="3600">
+      <SimplePredicate field="hour" operator="greaterOrEqual" value="22.5"/>
+     </Node>
+     <Node id="11" score="1" recordCount="25200">
+      <SimplePredicate field="hour" operator="lessThan" value="22.5"/>
+     </Node>
+    </Node>
+   </Node>
+   <Node id="3" score="2.88888888888889" recordCount="32400" defaultChild="6">
+    <CompoundPredicate booleanOperator="surrogate">
+     <SimplePredicate field="location" operator="greaterOrEqual" value="1.5"/>
+     <SimplePredicate field="hour" operator="greaterOrEqual" value="6.5"/>
+     <SimplePredicate field="music_active" operator="greaterOrEqual" value="0.5"/>
+     <SimplePredicate field="activity" operator="greaterOrEqual" value="2.5"/>
+     <SimplePredicate field="foreground" operator="greaterOrEqual" value="0.5"/>
+     <SimplePredicate field="screen_active" operator="greaterOrEqual" value="0.5"/>
+    </CompoundPredicate>
+    <Node id="6" score="2" recordCount="3600">
+     <CompoundPredicate booleanOperator="surrogate">
+      <SimplePredicate field="location" operator="greaterOrEqual" value="2.5"/>
+      <SimplePredicate field="hour" operator="lessThan" value="7.5"/>
+      <SimplePredicate field="activity" operator="greaterOrEqual" value="2.5"/>
+     </CompoundPredicate>
+    </Node>
+    <Node id="7" score="3" recordCount="28800">
+     <CompoundPredicate booleanOperator="surrogate">
+      <SimplePredicate field="location" operator="lessThan" value="2.5"/>
+      <SimplePredicate field="hour" operator="greaterOrEqual" value="7.5"/>
+      <SimplePredicate field="activity" operator="lessThan" value="2.5"/>
+     </CompoundPredicate>
+    </Node>
+   </Node>
+  </Node>
+ </TreeModel>
+</PMML>
