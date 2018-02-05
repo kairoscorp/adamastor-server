@@ -13,7 +13,7 @@ import static spark.Spark.*;
 public class Main {
     private static Logger logger = LoggerFactory.getLogger(Main.class);
     private static Generator modelGenerator = Generator.getInstace();
-    private static final int port = 80;
+    private static final int port = 8080;
     // private static int maxThreads = 8;
 
     public static void main(String[] args) {
