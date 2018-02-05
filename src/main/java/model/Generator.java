@@ -17,7 +17,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.Part;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 public class Generator {
     private static final JsonParser parser = new JsonParser();
@@ -80,27 +82,27 @@ public class Generator {
     }
 
     public byte[] registerData(Request request) throws GeneratorException {
-        request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
         byte[] data;
 
+        File uploadDir = new File("upload");
+        request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
+        uploadDir.mkdir();
+
         try {
-            Part csv = request.raw().getPart("csv_file");
-            try (InputStream inputStream = csv.getInputStream()) {
-                OutputStream outputStream = new FileOutputStream("/tmp/" + csv.getSubmittedFileName());
-                IOUtils.copy(inputStream, outputStream);
-                outputStream.close();
-            }
-            Part locations = request.raw().getPart("locations");
-            try (InputStream inputStream = locations.getInputStream()) {
-                OutputStream outputStream = new FileOutputStream("/tmp/" + locations.getSubmittedFileName());
-                IOUtils.copy(inputStream, outputStream);
-                outputStream.close();
-            }
+            Path csvOutput = Files.createTempFile(uploadDir.toPath(), "", "");
+            InputStream csvInput = request.raw().getPart("csv_file").getInputStream();
+            Files.copy(csvInput, csvOutput, StandardCopyOption.REPLACE_EXISTING);
+            csvInput.close();
+
+            Path locationsOutput = Files.createTempFile(uploadDir.toPath(), "", "");
+            InputStream locationsInput = request.raw().getPart("locations").getInputStream();
+            Files.copy(locationsInput, locationsOutput, StandardCopyOption.REPLACE_EXISTING);
+            locationsInput.close();
 
             // Get config file from resources folder
             String folderPath = "src/main/resources/";
-            File csvFile = new File("/tmp/logdump.csv");
-            File locationsFile = new File("/tmp/locations.JSON");
+            File csvFile = csvOutput.toFile();
+            File locationsFile = locationsOutput.toFile();
             File modelFile = new File(folderPath + "model.pmml");
             File generateModelFile = new File(folderPath + "clean_generate_model.R");
             File serializedModelFile = new File(folderPath + "serialized_model.txt");
@@ -122,7 +124,6 @@ public class Generator {
         }
 
         return data;
-
     }
 
     private void generateDataSet(File datasetGeneratorScript, File customConfig, File datasetFile ) throws GeneratorException {
