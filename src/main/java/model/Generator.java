@@ -14,6 +14,7 @@ import spark.utils.IOUtils;
 
 import javax.servlet.MultipartConfigElement;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 import java.io.*;
 import java.nio.file.Files;
@@ -85,17 +86,21 @@ public class Generator {
         byte[] data;
 
         File uploadDir = new File("upload");
-        request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
         uploadDir.mkdir();
+
+        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("/tmp");
+        HttpServletRequest raw = request.raw();
+
+        raw.setAttribute("org.eclipse.jetty.multipartConfig", multipartConfigElement);
 
         try {
             Path csvOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            InputStream csvInput = request.raw().getPart("csv_file").getInputStream();
+            InputStream csvInput = raw.getPart("csvfile").getInputStream();
             Files.copy(csvInput, csvOutput, StandardCopyOption.REPLACE_EXISTING);
             csvInput.close();
 
             Path locationsOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            InputStream locationsInput = request.raw().getPart("locations").getInputStream();
+            InputStream locationsInput = raw.getPart("locations").getInputStream();
             Files.copy(locationsInput, locationsOutput, StandardCopyOption.REPLACE_EXISTING);
             locationsInput.close();
 
