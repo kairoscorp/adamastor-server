@@ -92,59 +92,25 @@ public class Generator {
     public byte[] registerData(Request request) throws GeneratorException {
         byte[] data;
 
-        String location = "upload";          // the directory location where files will be stored
-        File uploadDir = new File(location);
-        uploadDir.mkdir();
-
-        long maxFileSize = 100000000;       // the maximum size allowed for uploaded files
-        long maxRequestSize = 100000000;    // the maximum size allowed for multipart/form-data requests
-        int fileSizeThreshold = 1024;       // the size threshold after which files will be written to disk
-
-        MultipartConfigElement multipartConfigElement = new MultipartConfigElement(
-                location, maxFileSize, maxRequestSize, fileSizeThreshold);
-        request.raw().setAttribute("org.eclipse.jetty.multipartConfig",
-                multipartConfigElement);
-
-        HttpServletRequest raw = request.raw();
-
-        // apache commons-fileupload to handle file upload
-        DiskFileItemFactory factory = new DiskFileItemFactory();
-        factory.setRepository(uploadDir);
-        ServletFileUpload fileUpload = new ServletFileUpload(factory);
-        try {
-            List<FileItem> items = fileUpload.parseRequest(request.raw());
-            for(FileItem file : items) {
-                System.out.println("Filename: " + file.getName());
-                System.out.println("Content-Type: " + file.getContentType());
-                System.out.println("Size: " + file.getSize());
-            }
-        } catch (FileUploadException e) {
-            e.printStackTrace();
-        }
-        for(String attribute : request.attributes()) {
-            System.out.println("Attribute: " +attribute);
-        }
-        for(Map.Entry<String, String> params : request.params().entrySet()) {
-            System.out.println("Params: " + params.getValue() + " - " + params.getKey());
-        }
-        System.out.println(request.attributes());
-        System.out.println(request.params());
+        File uploadDir = new File("upload");
 
         try {
             Path csvOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            InputStream csvInput = raw.getPart("csvfile").getInputStream();
-            Files.copy(csvInput, csvOutput, StandardCopyOption.REPLACE_EXISTING);
-            csvInput.close();
+            request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
 
-            Path locationsOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            InputStream locationsInput = raw.getPart("locations").getInputStream();
-            Files.copy(locationsInput, locationsOutput, StandardCopyOption.REPLACE_EXISTING);
-            locationsInput.close();
+            InputStream csvInput = request.raw().getPart("csvfile").getInputStream(); // getPart needs to use same "name" as input field in form
+            Files.copy(csvInput, csvOutput, StandardCopyOption.REPLACE_EXISTING);
+
+            Path jsonOutput = Files.createTempFile(uploadDir.toPath(), "", "");
+            request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
+
+            InputStream jsonInput = request.raw().getPart("locations").getInputStream(); // getPart needs to use same "name" as input field in form
+            Files.copy(jsonInput, jsonOutput, StandardCopyOption.REPLACE_EXISTING);
 
             // Get config file from resources folder
             String folderPath = "src/main/resources/";
             File csvFile = csvOutput.toFile();
-            File locationsFile = locationsOutput.toFile();
+            File locationsFile = jsonOutput.toFile();
             File modelFile = new File(folderPath + "model.pmml");
             File generateModelFile = new File(folderPath + "clean_generate_model.R");
             File serializedModelFile = new File(folderPath + "serialized_model.txt");

@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import model.Generator;
 
+import java.io.File;
+
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static spark.Spark.*;
 
@@ -20,6 +22,11 @@ public class Main {
         port(port);
         // threadPool(maxThreads);
         logger.info("Kairos Server Server starting at port: " + port);
+
+        File uploadDir = new File("upload");
+        uploadDir.mkdir();
+
+        staticFiles.externalLocation("upload");
 
         // Authentication
         before("/*", (request, response) -> {
