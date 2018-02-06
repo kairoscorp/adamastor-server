@@ -47,7 +47,7 @@ public class Main {
         });
 
         // Data should be sent to the data in a window of opportunity
-        post("/data", (request, response) -> {
+        post("/data", "multipart/form-data", (request, response) -> {
             logger.debug("Received a request with new data from the collector. Request: " + request.body());
             byte[] result = null;
             try {

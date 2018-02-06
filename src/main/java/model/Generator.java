@@ -2,6 +2,10 @@ package model;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -21,6 +25,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 public class Generator {
     private static final JsonParser parser = new JsonParser();
@@ -85,13 +92,43 @@ public class Generator {
     public byte[] registerData(Request request) throws GeneratorException {
         byte[] data;
 
-        File uploadDir = new File("upload");
+        String location = "upload";          // the directory location where files will be stored
+        File uploadDir = new File(location);
         uploadDir.mkdir();
 
-        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("/tmp");
+        long maxFileSize = 100000000;       // the maximum size allowed for uploaded files
+        long maxRequestSize = 100000000;    // the maximum size allowed for multipart/form-data requests
+        int fileSizeThreshold = 1024;       // the size threshold after which files will be written to disk
+
+        MultipartConfigElement multipartConfigElement = new MultipartConfigElement(
+                location, maxFileSize, maxRequestSize, fileSizeThreshold);
+        request.raw().setAttribute("org.eclipse.jetty.multipartConfig",
+                multipartConfigElement);
+
         HttpServletRequest raw = request.raw();
 
-        raw.setAttribute("org.eclipse.jetty.multipartConfig", multipartConfigElement);
+        // apache commons-fileupload to handle file upload
+        DiskFileItemFactory factory = new DiskFileItemFactory();
+        factory.setRepository(uploadDir);
+        ServletFileUpload fileUpload = new ServletFileUpload(factory);
+        try {
+            List<FileItem> items = fileUpload.parseRequest(request.raw());
+            for(FileItem file : items) {
+                System.out.println("Filename: " + file.getName());
+                System.out.println("Content-Type: " + file.getContentType());
+                System.out.println("Size: " + file.getSize());
+            }
+        } catch (FileUploadException e) {
+            e.printStackTrace();
+        }
+        for(String attribute : request.attributes()) {
+            System.out.println("Attribute: " +attribute);
+        }
+        for(Map.Entry<String, String> params : request.params().entrySet()) {
+            System.out.println("Params: " + params.getValue() + " - " + params.getKey());
+        }
+        System.out.println(request.attributes());
+        System.out.println(request.params());
 
         try {
             Path csvOutput = Files.createTempFile(uploadDir.toPath(), "", "");
