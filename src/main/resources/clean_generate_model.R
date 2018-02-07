@@ -39,7 +39,7 @@ if(length(args) < 3){
 
   d = d[,c("hour","minute","weekday","foreground","activity","screen_active","call_active","music_active","ring_mode","location","context")]
 
-  t = rpart(class~.,data=d)
+  t = rpart(context~.,data=d)
   saveXML(pmml(t),args[3])
 
 }
