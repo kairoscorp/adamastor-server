@@ -25,8 +25,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 public class Generator {
     private static final JsonParser parser = new JsonParser();
@@ -99,17 +98,16 @@ public class Generator {
             MultipartParser multipartParser = new MultipartParser(byteSource, "boundary");
             File csvFile = File.createTempFile("csvfile", ".tmp");
             File locationsFile = File.createTempFile("locations", ".tmp");
-            Map<String, File> files = new TreeMap<>();
-            files.put("csvfile", csvFile);
-            files.put("locations", locationsFile);
-
+            List<File> files = new ArrayList<>();
+            files.add(csvFile);
+            files.add(locationsFile);
+            Iterator<File> fileIterator = files.iterator();
             while (true) {
                 try {
                     MultipartPart part = multipartParser.getNextPart().sync();   // async -> sync
                     ByteSource body = part.body();
-                    String name = part.headers().get("name");
                     InputStream inputStream = new ByteSource2InputStream(body, Duration.ofSeconds(1));
-                    OutputStream outputStream = new FileOutputStream(files.get(name));
+                    OutputStream outputStream = new FileOutputStream(fileIterator.next());
 
                     int read = 0;
                     byte[] bytes = new byte[1024];
