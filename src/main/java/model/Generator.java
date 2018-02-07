@@ -1,38 +1,39 @@
 package model;
 
+import bayou.bytes.ByteSource;
+import bayou.bytes.ByteSource2InputStream;
+import bayou.bytes.InputStream2ByteSource;
+import bayou.mime.MultipartParser;
+import bayou.mime.MultipartPart;
+import bayou.util.End;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import serializer.Serializer;
+import server.Main;
 import spark.Request;
 import spark.utils.IOUtils;
 
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.Part;
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.Collection;
-import java.util.List;
+import java.time.Duration;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class Generator {
     private static final JsonParser parser = new JsonParser();
     private static Generator instance;
     private SAXBuilder builder;
+    private static Logger logger = LoggerFactory.getLogger(Generator.class);
+
 
     private Generator(){
         this.builder = new SAXBuilder();
@@ -89,28 +90,41 @@ public class Generator {
         return data;
     }
 
-    public byte[] registerData(Request request) throws GeneratorException {
-        byte[] data;
-
-        File uploadDir = new File("upload");
-
+    public byte[] registerData(Request request) throws GeneratorException, Exception {
+        byte [] data = null;
+        InputStream is = null;
         try {
-            Path csvOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
+            is = new ByteArrayInputStream(request.body().getBytes("ISO-8859-1"));
+            ByteSource byteSource = new InputStream2ByteSource(is, 1024);
+            MultipartParser multipartParser = new MultipartParser(byteSource, "boundary");
+            File csvFile = File.createTempFile("csvfile", ".tmp");
+            File locationsFile = File.createTempFile("locations", ".tmp");
+            Map<String, File> files = new TreeMap<>();
+            files.put("csvfile", csvFile);
+            files.put("locations", locationsFile);
 
-            InputStream csvInput = request.raw().getPart("csvfile").getInputStream(); // getPart needs to use same "name" as input field in form
-            Files.copy(csvInput, csvOutput, StandardCopyOption.REPLACE_EXISTING);
+            while (true) {
+                try {
+                    MultipartPart part = multipartParser.getNextPart().sync();   // async -> sync
+                    ByteSource body = part.body();
+                    String name = part.headers().get("name");
+                    InputStream inputStream = new ByteSource2InputStream(body, Duration.ofSeconds(1));
+                    OutputStream outputStream = new FileOutputStream(files.get(name));
 
-            Path jsonOutput = Files.createTempFile(uploadDir.toPath(), "", "");
-            request.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
+                    int read = 0;
+                    byte[] bytes = new byte[1024];
 
-            InputStream jsonInput = request.raw().getPart("locations").getInputStream(); // getPart needs to use same "name" as input field in form
-            Files.copy(jsonInput, jsonOutput, StandardCopyOption.REPLACE_EXISTING);
+                    while ((read = inputStream.read(bytes)) != -1) {
+                        outputStream.write(bytes, 0, read);
+                    }
+                } catch (End end) {
+                    logger.debug("Register data file uploaded.");
+                    break;
+                }
+            }
 
             // Get config file from resources folder
             String folderPath = "src/main/resources/";
-            File csvFile = csvOutput.toFile();
-            File locationsFile = jsonOutput.toFile();
             File modelFile = new File(folderPath + "model.pmml");
             File generateModelFile = new File(folderPath + "clean_generate_model.R");
             File serializedModelFile = new File(folderPath + "serialized_model.txt");
@@ -126,10 +140,10 @@ public class Generator {
             } catch (IOException e) {
                 throw new GeneratorException("An unexpected error has occurred");
             }
-
-        } catch (IOException | ServletException e) {
+        } catch (UnsupportedEncodingException e) {
             throw new GeneratorException("An unexpected error has occurred");
         }
+
 
         return data;
     }

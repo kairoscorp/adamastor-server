@@ -23,11 +23,6 @@ public class Main {
         // threadPool(maxThreads);
         logger.info("Kairos Server Server starting at port: " + port);
 
-        File uploadDir = new File("upload");
-        uploadDir.mkdir();
-
-        staticFiles.externalLocation("upload");
-
         // Authentication
         before("/*", (request, response) -> {
             boolean authenticated = true;
